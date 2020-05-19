@@ -3,6 +3,10 @@ package buildrun
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"strconv"
+
 	buildv1alpha1 "github.com/redhat-developer/build/pkg/apis/build/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strconv"
 )
 
 var log = logf.Log.WithName("controller_buildrun")
@@ -93,6 +96,20 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	})
 }
 
+// This function only returns multiple errors if each error is not nil.
+// And its error message.
+func handleError(message string, listOfErrors ...error) error {
+	err_slice := make([]string, 0)
+	for _, e := range listOfErrors {
+		if e != nil {
+			err_slice = append(err_slice, e.Error())
+		}
+	}
+	errorstrings := strings.Join(err_slice, ", ")
+	combinedError := fmt.Errorf("errors: %s, msg: %s", errorstrings, message)
+	return combinedError
+}
+
 // Reconcile reads that state of the cluster for a Build object and makes changes based on the state read
 // and what is in the Build.Spec
 func (r *ReconcileBuildRun) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -113,7 +130,7 @@ func (r *ReconcileBuildRun) Reconcile(request reconcile.Request) (reconcile.Resu
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: buildRun.Spec.BuildRef.Name, Namespace: buildRun.Namespace}, build)
 	if err != nil {
 		updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-		return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+		return reconcile.Result{}, handleError("Failed to fetch the Build instance", err, updateErr)
 	}
 
 	if buildRun.GetLabels() == nil {
@@ -130,9 +147,8 @@ func (r *ReconcileBuildRun) Reconcile(request reconcile.Request) (reconcile.Resu
 
 	lastTaskRun, err := r.retrieveTaskRun(build, buildRun)
 	if err != nil {
-		reqLogger.Error(err, "Failed to list existing TaskRuns from BuildRun", "BuildRun", buildRun.Name)
 		updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-		return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+		return reconcile.Result{}, handleError(fmt.Sprintf("Failed to list existing TaskRuns from BuildRun: %v", buildRun.Name), err, updateErr)
 	}
 
 	if lastTaskRun != nil {
@@ -163,7 +179,7 @@ func (r *ReconcileBuildRun) Reconcile(request reconcile.Request) (reconcile.Resu
 	serviceAccount, err := r.retrieveServiceAccount(build, buildRun)
 	if err != nil {
 		updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-		return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+		return reconcile.Result{}, handleError("Failed to choose a service account to use", err, updateErr)
 	}
 
 	// Everytime control enters the reconcile loop, we need to ensure
@@ -178,7 +194,7 @@ func (r *ReconcileBuildRun) Reconcile(request reconcile.Request) (reconcile.Resu
 			generatedTaskRun, err = GenerateTaskRun(build, buildRun, serviceAccount.Name, buildStrategy.Spec.BuildSteps)
 			if err != nil {
 				updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-				return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+				return reconcile.Result{}, handleError("Failed to generate the taskrun with buildStrategy", err, updateErr)
 			}
 		}
 	} else if *build.Spec.StrategyRef.Kind == buildv1alpha1.ClusterBuildStrategyKind {
@@ -190,33 +206,32 @@ func (r *ReconcileBuildRun) Reconcile(request reconcile.Request) (reconcile.Resu
 			generatedTaskRun, err = GenerateTaskRun(build, buildRun, serviceAccount.Name, clusterBuildStrategy.Spec.BuildSteps)
 			if err != nil {
 				updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-				return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+				return reconcile.Result{}, handleError("Failed to generate the taskrun with clusterBuildStrategy", err, updateErr)
 			}
 		}
 	} else {
 		err := fmt.Errorf("unknown strategy %s", string(*build.Spec.StrategyRef.Kind))
-		reqLogger.Error(err, "Unsupported BuildStrategy Kind", "BuildStrategyKind", build.Spec.StrategyRef.Kind)
 		updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-		return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+		return reconcile.Result{}, handleError(fmt.Sprintf("Unsupported BuildStrategy Kind: %v", build.Spec.StrategyRef.Kind), err, updateErr)
 	}
 
 	// Set OwnerReference for Build and BuildRun
 	if err := r.setOwnerReferenceFunc(build, buildRun, r.scheme); err != nil {
 		updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-		return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+		return reconcile.Result{}, handleError("Failed to set OwnerReference for Build and BuildRun", err, updateErr)
 	}
 
 	// Set OwnerReference for BuildRun and TaskRun
 	if err := r.setOwnerReferenceFunc(buildRun, generatedTaskRun, r.scheme); err != nil {
 		updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-		return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+		return reconcile.Result{}, handleError("Failed to set OwnerReference for BuildRun and TaskRun", err, updateErr)
 	}
 
 	// create TaskRun if no TaskRun for that BuildRun exists
 	err = r.client.Create(context.TODO(), generatedTaskRun)
 	if err != nil {
 		updateErr := r.updateBuildRunErrorStatus(buildRun, err.Error())
-		return reconcile.Result{}, fmt.Errorf("errors: %v %v", err, updateErr)
+		return reconcile.Result{}, handleError("Failed to create TaskRun if no TaskRun for that BuildRun exists", err, updateErr)
 	}
 
 	reqLogger.Info("Generate and create TaskRun from Build and BuildRun", "TaskRun", generatedTaskRun.Name, "Build", build.Name, "BuildRun", buildRun.Name)
