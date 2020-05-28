@@ -99,15 +99,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // This function only returns multiple errors if each error is not nil.
 // And its error message.
 func handleError(message string, listOfErrors ...error) error {
-	err_slice := make([]string, 0)
+	var errSlice []string
 	for _, e := range listOfErrors {
 		if e != nil {
-			err_slice = append(err_slice, e.Error())
+			errSlice = append(errSlice, e.Error())
 		}
 	}
-	errorstrings := strings.Join(err_slice, ", ")
-	combinedError := fmt.Errorf("errors: %s, msg: %s", errorstrings, message)
-	return combinedError
+	return fmt.Errorf("errors: %s, msg: %s", strings.Join(errSlice, ", "), message)
 }
 
 // Reconcile reads that state of the cluster for a Build object and makes changes based on the state read
