@@ -18,7 +18,6 @@ import (
 	buildmetrics "github.com/shipwright-io/build/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -129,7 +128,6 @@ func (r *ReconcileBuild) Reconcile(request reconcile.Request) (reconcile.Result,
 		ctxlog.Debug(ctx, "finish reconciling build. build was not found", namespace, request.Namespace, name, request.Name)
 		return reconcile.Result{}, nil
 	}
-
 
 	// Populate the status struct with default values
 	b.Status.Registered = corev1.ConditionFalse
@@ -300,46 +298,4 @@ func (r *ReconcileBuild) validateSecrets(ctx context.Context, secretNames []stri
 	}
 
 	return nil
-}
-
-
-func (r *ReconcileBuild) cleanBuildRun(ctx context.Context, b *build.Build) error {
-	buildRunList := &build.BuildRunList{}
-
-	lbls := map[string]string{
-		build.LabelBuild: b.Name,
-	}
-	opts := client.ListOptions{
-		Namespace:     b.Namespace,
-		LabelSelector: labels.SelectorFromSet(lbls),
-	}
-	if err := r.client.List(ctx, buildRunList, &opts); err != nil {
-		return err
-	}
-
-	for _, buildRun := range buildRunList.Items {
-		ctxlog.Info(ctx, "deleting buildrun", namespace, b.Namespace, name, b.Name, "buildrunname", buildRun.Name)
-		if err := r.client.Delete(ctx, &buildRun); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
-
-func remove(list []string, s string) []string {
-	for i, v := range list {
-		if v == s {
-			list = append(list[:i], list[i+1:]...)
-		}
-	}
-	return list
 }

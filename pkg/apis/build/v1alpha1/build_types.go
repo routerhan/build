@@ -1,5 +1,5 @@
 // Copyright The Shipwright Contributors
-// 
+//
 // SPDX-License-Identifier: Apache-2.0
 
 package v1alpha1
@@ -13,7 +13,6 @@ var (
 	LabelBuild                 = "build.build.dev/name"
 	LabelBuildGeneration       = "build.build.dev/generation"
 	AnnotationBuildRunDeletion = "build.build.dev/build-run-deletion"
-	BuildFinalizer             = "finalizer.build.build.dev"
 )
 
 // BuildSpec defines the desired state of Build
