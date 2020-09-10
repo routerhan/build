@@ -1,0 +1,9 @@
+apiVersion: build.dev/v1alpha1
+kind: BuildRun
+metadata:
+  name: "{{ .Values.buildrun.name }}"
+spec:
+  buildRef:
+    name: "{{ .Values.buildrun.buildRef.name }}"
+  serviceAccount:
+    generate: {{ .Values.buildrun.serviceAccount.generate }}

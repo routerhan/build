@@ -1,0 +1,18 @@
+apiVersion: build.dev/v1alpha1
+kind: Build
+metadata:
+  name: "{{ .Values.build.name }}"
+  annotations:
+    build.build.dev/build-run-deletion: "{{ .Values.build.enableBuildRunDeletion }}"
+spec:
+  source:
+    url: "{{ .Values.build.source.url }}"
+    revision : "{{ .Values.build.source.revision }}"
+  strategy:
+    name: "{{ .Values.build.strategy.name }}"
+    kind: "{{ .Values.build.strategy.kind }}"
+  dockerfile: "{{ .Values.build.dockerfile }}"
+  output:
+    image: "{{ .Values.build.output.image }}"
+    credentials:
+      name: "{{ .Values.build.output.credentials.name }}"

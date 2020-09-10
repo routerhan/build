@@ -1,0 +1,27 @@
+# Default values for helm-demo.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+build: 
+  name: kaniko-golang-build-test
+  enableBuildRunDeletion: true
+  source: 
+    url: https://github.com/SaschaSchwarze0/docker-simple
+    revision: busybox
+  strategy:
+    name: kaniko
+    kind: ClusterBuildStrategy
+  dockerfile: Dockerfile
+  output:
+    image: us.icr.io/source-to-image-build/docker-simple
+    credentials:
+      name: icr-knbuild-test
+
+buildrun:
+  name: kaniko-golang-buildrun-test-1
+  buildRef:
+    name: kaniko-golang-build-test
+  serviceAccount:
+    generate: true
