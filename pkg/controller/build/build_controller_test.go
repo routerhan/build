@@ -371,13 +371,13 @@ var _ = Describe("Reconcile Build", func() {
 					return nil
 				})
 
-				statusCall := ctl.StubFunc(corev1.ConditionFalse, fmt.Sprintf("none ClusterBuildStrategies found"))
+				statusCall := ctl.StubFunc(corev1.ConditionFalse, "none ClusterBuildStrategies found")
 				statusWriter.UpdateCalls(statusCall)
 
 				_, err := reconciler.Reconcile(request)
 				Expect(err).To(HaveOccurred())
 				Expect(statusWriter.UpdateCallCount()).To(Equal(1))
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("none ClusterBuildStrategies found")))
+				Expect(err.Error()).To(ContainSubstring("none ClusterBuildStrategies found"))
 			})
 		})
 		Context("when spec strategy BuildStrategy is specified", func() {

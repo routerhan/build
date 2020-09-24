@@ -438,7 +438,7 @@ var _ = Describe("Reconcile BuildRun", func() {
 
 				_, err := reconciler.Reconcile(buildRunRequest)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("\"default\" not found, msg: Failed to choose a service account to use")))
+				Expect(err.Error()).To(ContainSubstring("\"default\" not found, msg: Failed to choose a service account to use"))
 			})
 
 			It("fails on a TaskRun creation due to missing namespaced buildstrategy", func() {
@@ -489,7 +489,7 @@ var _ = Describe("Reconcile BuildRun", func() {
 
 				_, err := reconciler.Reconcile(buildRunRequest)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(" Unsupported BuildStrategy Kind")))
+				Expect(err.Error()).To(ContainSubstring(" Unsupported BuildStrategy Kind"))
 			})
 
 			It("only generates the service account once if the taskRun cannot be created", func() {
